@@ -1,19 +1,51 @@
 #include <ncurses.h>
 #include <stdlib.h>
+#include <time.h>
+
+struct Connection;
+
+enum Orientation {
+    TOP,
+    RIGHT,
+    BOTTOM,
+    LEFT
+};
 
 typedef struct Point {
     int x;
     int y;
 }Point;
 
+typedef struct Door {
+    Point position;
+    struct Connection *outside;
+    bool isBlocked;
+}Door;
+
 typedef struct Room {
     Point position;
     int width;
     int height;
+    Door doors[4]; //implicit Orientation (top, then clockwise)
 }Room;
+
+enum ConnectionMode {
+    PIPE,
+    STITCH,
+    EMBEDDED
+};
+
+typedef struct Connection {
+    enum ConnectionMode mode;
+    enum Orientation doorSideHead;
+    enum Orientation doorSideTail;
+    Room* roomHead;
+    Room* roomTail;
+}Connection;
 
 typedef struct Map {
     Room** rooms;
+    Room* currentRoom;
     int numRooms;
 }Map;
 
@@ -23,26 +55,30 @@ typedef struct Player {
 }Player;
 
 int screenSetUp();
-Map mapSetUp();
+Map createTestMap();
+
 int printRoom(Room* room);
 Room* buildRoom(int y, int x, int height, int width);
+int connectRooms(Room* head, Room* tail, enum Orientation orientHead, enum Orientation orientTail);
+
 Point checkCollision(Point newPosition, Player* player);
 int movePlayer(Point newPosition, Player* player);
 int handleInput(int ch, Player* player);
 
 
-Player* playerSetUp();
+Player* spawnPlayer(int y, int x);
 
 
 int main () 
 {
+    srand(time(NULL));
     Player* user;
     int ch;
     screenSetUp();
 
-    Map map = mapSetUp();
+    Map map = createTestMap();
 
-    user = playerSetUp();
+    user = spawnPlayer(14, 14);
 
     while((ch = getch()) != 'q')
     {
@@ -58,10 +94,10 @@ int main ()
     return 0;
 }
 
-Player* playerSetUp() {
+Player* spawnPlayer(int y, int x) {
     Player* newPlayer = malloc(sizeof(Player));
-    newPlayer->position.x = 14;
-    newPlayer->position.y = 14;
+    newPlayer->position.x = x;
+    newPlayer->position.y = y;
     newPlayer->health = 100;
 
     mvprintw(newPlayer->position.y, newPlayer->position.x, "@");
@@ -71,6 +107,7 @@ Player* playerSetUp() {
 
 int screenSetUp() {
     initscr();
+    keypad(stdscr, true);
     printw("Welcome!");
     noecho();
     refresh();
@@ -89,17 +126,23 @@ int handleInput(int ch, Player* player) {
     switch(ch)
     {
         case 'w':
+        case KEY_UP:
             position.y -= 1;
             break;
         case 's':
+        case KEY_DOWN:
             position.y += 1;
             break;
         case 'a':
+        case KEY_LEFT:
             position.x -= 1;
             break;
         case 'd':
+        case KEY_RIGHT:
             position.x += 1;
             break;
+        default:
+            break; 
     }
     position = checkCollision(position, player);
     movePlayer(position, player);
@@ -114,6 +157,10 @@ Point checkCollision(Point newPosition, Player* player){
             return player->position;
         case '.':
             return newPosition;
+        case '+':
+            return player->position; //TODO: connect doors
+        default:
+            return player->position;
     }
 }
 
@@ -138,6 +185,7 @@ Room* buildRoom(int y, int x, int height, int width) {
     newRoom->position.y = y;
     newRoom->width = width;
     newRoom->height = height;
+    return newRoom;
 }
 
 int printRoom(Room* room) {
@@ -169,16 +217,107 @@ int printRoom(Room* room) {
     mvprintw(y+height-1, x, "%s", wall);
     free(wall);
     free(interior);
+    //Done with x/y variables as origin of room
+    for(int i=0; i<4; i++)
+    {   
+        x=room->doors[i].position.x;
+        y=room->doors[i].position.y;
+        if(x == 0 && y == 0){
+            continue;
+        }
+        mvprintw(y, x, "D");
+    }
     return 0;
 }
 
+int buildDoor(Room* room, enum Orientation orient) {
+    
+    Point pos = room->position;
+    int placement = room->width;
+    int face = room->height;
+    switch(orient) {
+        case LEFT:
+        case RIGHT: //y is movable -- flip axis manipulation
+            //flip x/y in position
+            pos.x=pos.x^pos.y;
+            pos.y=pos.x^pos.y;
+            pos.x=pos.x^pos.y;
+            //flip placement/face
+            placement=placement^face;
+            face=placement^face;
+            placement=placement^face;
+        default:
+    }
+    int placementRoll = placement >> 1;
+    if(placementRoll < 1)
+    {
+        //ERROR: size of room can't work with less than 3 width/height
+        return -1;
+    } else if(placementRoll == 1)
+    {
+        pos.x += 1; //or end result of (rand() % (room->width-2) + 1) where width has to be 3;
+    } else {
+        placementRoll--;
+        pos.x += (rand() % placementRoll + rand() % placementRoll);
+    }
+    if(orient == BOTTOM || orient == RIGHT)
+    {
+        pos.y += face;
+    }
+    //flip back to x/y if y/x
+    switch(orient) {
+        case LEFT:
+        case RIGHT:
+            //flip x/y in position
+            pos.x=pos.x^pos.y;
+            pos.y=pos.x^pos.y;
+            pos.x=pos.x^pos.y;
+            //flip placement/face
+            placement=placement^face;
+            face=placement^face;
+            placement=placement^face;
+        default:
+    }
+    room->doors[orient].position = pos;
+    return 0;
+}
 
+int connectRooms(Room* head, Room* tail, enum Orientation orientHead, enum Orientation orientTail) {
+    if(head->doors[orientHead].outside != NULL) {
+        //Error: Room is already connected
+        //TODO:error handling
+        return -1;
+    }
+    if(tail->doors[orientTail].outside != NULL) {
+        //Error: Room is already connected
+        //TODO:error handling
+        return -1;
+    }
+    Door* tailDoor = &tail->doors[orientTail];
+    //if(head->)
+    Connection* newConnection = malloc(sizeof(Connection));
+    
+    
+    
+    return 0;
+}
 
-Map mapSetUp() {
+//Map generateMap() {
+
+//}
+
+Map createTestMap() {
     Room** rooms = malloc(sizeof(Room*)*3);
     rooms[0] = buildRoom(13, 13, 6, 12);
     rooms[1] = buildRoom(3, 13, 6, 12);
     rooms[2] = buildRoom(3, 40, 6, 12);
+
+    //connectRooms(rooms[0], rooms[1], Orientation.TOP, Orientation.BOTTOM);
+    //connectRooms(rooms[1], rooms[2], Orientation.RIGHT, Orientation.LEFT);
+    for(int i=0; i<4; i++){
+        buildDoor(rooms[0], i);
+    }
+
     for(int i=0; i<3; i++ )
     {
         printRoom(rooms[i]);
@@ -186,5 +325,6 @@ Map mapSetUp() {
     Map map;
     map.rooms = rooms;
     map.numRooms = 3;
+    map.currentRoom = rooms[0];
     return map;
 }
