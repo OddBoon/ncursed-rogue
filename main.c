@@ -12,13 +12,18 @@ typedef struct Room {
     int height;
 }Room;
 
+typedef struct Map {
+    Room** rooms;
+    int numRooms;
+}Map;
+
 typedef struct Player {
     Point position;
     int health;
 }Player;
 
 int screenSetUp();
-Room** mapSetUp();
+Map mapSetUp();
 int printRoom(Room* room);
 Room* buildRoom(int y, int x, int height, int width);
 Point checkCollision(Point newPosition, Player* player);
@@ -35,7 +40,7 @@ int main ()
     int ch;
     screenSetUp();
 
-    mapSetUp();
+    Map map = mapSetUp();
 
     user = playerSetUp();
 
@@ -45,6 +50,11 @@ int main ()
     }
     endwin();
     free(user);
+    for(int i=0; i<map.numRooms; i++)
+    {
+        free(map.rooms[i]);
+        printf("Free room #%d", i);
+    }
     return 0;
 }
 
@@ -164,7 +174,7 @@ int printRoom(Room* room) {
 
 
 
-Room** mapSetUp() {
+Map mapSetUp() {
     Room** rooms = malloc(sizeof(Room*)*3);
     rooms[0] = buildRoom(13, 13, 6, 12);
     rooms[1] = buildRoom(3, 13, 6, 12);
@@ -173,4 +183,8 @@ Room** mapSetUp() {
     {
         printRoom(rooms[i]);
     }
+    Map map;
+    map.rooms = rooms;
+    map.numRooms = 3;
+    return map;
 }
