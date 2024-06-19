@@ -67,6 +67,8 @@ Room* buildRoom(int y, int x, int height, int width);
 int connectRooms(Room* head, Room* tail, enum Orientation orientHead, enum Orientation orientTail);
 int freeRoom(Room* room);
 
+int printConnection(Connection* con);
+
 Point checkCollision(Point newPosition, Player* player);
 int movePlayer(Point newPosition, Player* player);
 int handleInput(int ch, Player* player);
@@ -204,6 +206,96 @@ Room* buildRoom(int y, int x, int height, int width) {
         newRoom->doors[i].position = startPos;
     }
     return newRoom;
+}
+
+int printConnection(Connection* con){
+    Point start = con->roomHead->doors[con->doorSideHead].position;
+    Point end = con->roomTail->doors[con->doorSideTail].position;
+    Point delta;
+    delta.x = end.x-start.x;
+    delta.y = end.y-start.y;
+    //Initial Movement
+    switch(con->doorSideHead){
+        case TOP:
+            delta.y+=1;
+            start.y-=1;
+        break;
+        case BOTTOM:
+            delta.y-=1;
+            start.y+=1;
+        break;
+        case LEFT:
+            delta.x+=1;
+            start.x-=1;
+        break;
+        case RIGHT:
+            delta.x-=1;
+            start.x+=1;
+        break;
+    }
+    mvprintw(start.y, start.x, "#");
+    //Find End
+    bool Xmovement = delta.x / delta.y;
+    bool hasMoved = false;
+    while(delta.x != 0 || delta.y != 0)
+    {
+        hasMoved = false;
+        if(Xmovement) {
+            if(delta.x < 0 && (mvinch(start.y, start.x-1) == ' '))
+            {
+                delta.x+=1;
+                start.x-=1;
+                mvprintw(start.y, start.x, "#");
+                hasMoved = true;
+            }else if(delta.x > 0 && (mvinch(start.y, start.x+1) == ' ')) {
+                delta.x-=1;
+                start.x+=1;
+                mvprintw(start.y, start.x, "#");
+                hasMoved = true;
+            }else if(delta.y < 0 && (mvinch(start.y-1, start.x) == ' ')) {
+                delta.y += 1;
+                start.y -= 1;
+                mvprintw(start.y, start.x, "#");
+                hasMoved = true;
+            }else if(delta.y > 0 && (mvinch(start.y+1, start.x) == ' ')) {
+                delta.y -= 1;
+                start.y += 1;
+                mvprintw(start.y, start.x, "#");
+                hasMoved = true;
+            }
+        } else {//invert priority of x and y
+            if(delta.y < 0 && (mvinch(start.y-1, start.x) == ' ')) {
+                delta.y += 1;
+                start.y -= 1;
+                mvprintw(start.y, start.x, "#");
+                hasMoved = true;
+            }else if(delta.y > 0 && (mvinch(start.y+1, start.x) == ' ')) {
+                delta.y -= 1;
+                start.y += 1;
+                mvprintw(start.y, start.x, "#");
+                hasMoved = true;
+            }else if(delta.x < 0 && (mvinch(start.y, start.x-1) == ' ')) {
+                delta.x+=1;
+                start.x-=1;
+                mvprintw(start.y, start.x, "#");
+                hasMoved = true;
+            }else if(delta.x > 0 && (mvinch(start.y, start.x+1) == ' ')) {
+                delta.x-=1;
+                start.x+=1;
+                mvprintw(start.y, start.x, "#");
+                hasMoved = true;
+            }
+        }
+        Xmovement = delta.y == 0 || (delta.x / delta.y);
+        if(!hasMoved) {
+            int lastMove = delta.y+delta.x;
+            if(lastMove >= -1  && lastMove <= 1 && !(delta.y || delta.x)) {
+                return 0;
+            }
+            return -1;
+        }
+    }
+    return 0;
 }
 
 int printRoom(Room* room) {
@@ -351,6 +443,12 @@ int connectRooms(Room* head, Room* tail, enum Orientation orientHead, enum Orien
     Door tailDoor = tail->doors[orientTail];
     Door headDoor = head->doors[orientHead];
 
+    if(tailDoor.position.x-headDoor.position.x == 0 || tailDoor.position.y-headDoor.position.y == 0)
+    //Rooms are touching
+    {
+        //TODO: Dont know what to do yet
+    }
+
     //Make Connection
     Connection* newConnection = malloc(sizeof(Connection));
     newConnection->doorSideTail = orientTail;
@@ -433,6 +531,7 @@ Map createTestMap() {
     {
         printRoom(rooms[i]);
     }
+    printConnection(rooms[0]->doors[TOP].outside);
     Map map;
     map.rooms = rooms;
     map.numRooms = 3;
