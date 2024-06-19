@@ -110,7 +110,7 @@ Player* spawnPlayer(int y, int x) {
 int screenSetUp() {
     initscr();
     keypad(stdscr, true);
-    printw("Welcome!");
+    printw("Welcome Delver!");
     noecho();
     refresh();
 
@@ -156,10 +156,13 @@ Point checkCollision(Point newPosition, Player* player){
     {
         case '|':
         case '-':
+        case '[':
+        case ']':
+        case '=':
             return player->position;
         case '.':
             return newPosition;
-        case '+':
+        case 'D':
             return player->position; //TODO: connect doors
         default:
             return player->position;
@@ -233,21 +236,18 @@ int printRoom(Room* room) {
     mvprintw(y+height-1, position.x, "%s", wall);
     free(wall);
     free(interior);
-    //Done with x/y variables as origin of room
     Point doorPosition;
     for(enum Orientation i=TOP; i<=LEFT; i++)
     {   
-        if(ptAtRelOrigin(position, (doorPosition = room->doors[i].position))){
+        if(ptAtRelOrigin(position, (doorPosition = room->doors[i].position))) {
             continue;
-        }else if(ptAtWrldOrigin(doorPosition))
-        {
-            //Error: Doors wasn't initialized/Door was set outside of room bounds
+        }else if(ptAtWrldOrigin(doorPosition)) {
+            //Error: Doors weren't initialized/Door was set outside of room bounds
             //TODO: Do error handling on bad door for print
             //TODO: Develop error for door outside of room bounds
 
         }
-        if(room->doors[i].isBlocked)
-        {
+        if(room->doors[i].isBlocked) {
             switch(i)
             {
                 case LEFT:
@@ -349,7 +349,7 @@ int connectRooms(Room* head, Room* tail, enum Orientation orientHead, enum Orien
     }
     //Copy doors to local variables
     Door tailDoor = tail->doors[orientTail];
-    Door headDoor = tail->doors[orientHead];
+    Door headDoor = head->doors[orientHead];
 
     //Make Connection
     Connection* newConnection = malloc(sizeof(Connection));
@@ -421,11 +421,13 @@ Map createTestMap() {
     rooms[1] = buildRoom(3, 13, 6, 12);
     rooms[2] = buildRoom(3, 40, 6, 12);
 
-    connectRooms(rooms[0], rooms[1], TOP, BOTTOM);
-    //connectRooms(rooms[1], rooms[2], Orientation.RIGHT, Orientation.LEFT);
     for(int i=0; i<4; i++){
         buildDoor(rooms[0], i);
+        rooms[0]->doors[i].isBlocked=true;
     }
+    
+    connectRooms(rooms[0], rooms[1], TOP, BOTTOM);
+    //connectRooms(rooms[1], rooms[2], Orientation.RIGHT, Orientation.LEFT);
 
     for(int i=0; i<3; i++ )
     {
