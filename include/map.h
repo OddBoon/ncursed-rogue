@@ -1,7 +1,14 @@
 #ifndef MAP_H
 #define MAP_H
-#include "point.h"
+
+#ifndef PRE_H_H
+#define PRE_H_H
 #include <stdlib.h>
+#include <stdbool.h>
+#endif
+
+#include "point.h"
+
 
 struct Connection;
 

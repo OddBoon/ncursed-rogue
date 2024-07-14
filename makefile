@@ -21,7 +21,10 @@ main.o : $(SRCDIR)main.c $(INCLUDE)rogue.h $(INCLUDE)point.h $(INCLUDE)player.h 
 point.o : $(SRCDIR)point.c $(INCLUDE)point.h
 	$(CC) $(CFLAGS) -c -I$(INCLUDE) $(SRCDIR)point.c -o $(BUILD)$@
 
-rogue: main.o point.o map.o
+player.o : $(SRCDIR)player.c $(INCLUDE)player.h $(INCLUDE)point.h
+	$(CC) $(CFLAGS) -c -I$(INCLUDE) $(SRCDIR)player.c -o $(BUILD)$@
+
+rogue: main.o point.o map.o player.o
 	$(CC) $(DEBUG) $(CFLAGS) $(BUILD)*.o -o $(BINDIR)$(OUTPUT)
 debug:
 	$(DEBUGGER) $(OUTPUT)

@@ -10,6 +10,7 @@ int main ()
     Map map = createTestMap();
     //TODO: check for valid spawning point for user
     user = spawnPlayer(14, 14);
+    printPlayer(user);
 
     while((ch = getch()) != 'q')
     {
@@ -21,15 +22,10 @@ int main ()
     return 0;
 }
 
-Player* spawnPlayer(int y, int x) {
-    Player* newPlayer = malloc(sizeof(Player));
-    newPlayer->position.x = x;
-    newPlayer->position.y = y;
-    newPlayer->health = 100;
-
-    mvprintw(newPlayer->position.y, newPlayer->position.x, "@");
-    move(newPlayer->position.y, newPlayer->position.x);
-    return newPlayer;
+int printPlayer(Player* player)
+{
+    mvprintw(player->position.y, player->position.x, "@");
+    move(player->position.y, player->position.x);
 }
 
 int screenSetUp() {
@@ -86,9 +82,9 @@ Point checkCollision(Point newPosition, Player* player){
         case '=':
             return player->position;
         case '.':
+        case '#':
+        case '0':
             return newPosition;
-        case 'D':
-            return player->position; //TODO: connect doors
         default:
             return player->position;
     }
@@ -96,11 +92,31 @@ Point checkCollision(Point newPosition, Player* player){
 
 int movePlayer(Point newPosition, Player* player) {
     Point prevPosition = player->position;
-    if(prevPosition.x == newPosition.x && prevPosition.y == newPosition.y) { return 0; }
-    mvprintw(prevPosition.y, prevPosition.x, ".");
-    mvprintw(newPosition.y, newPosition.x, "@");
+    if(prevPosition.x != newPosition.x || prevPosition.y != newPosition.y) { 
+        mvprintw(prevPosition.y, prevPosition.x, ".");
+        mvprintw(newPosition.y, newPosition.x, "@");
+    }
     move(newPosition.y, newPosition.x);
     player->position = newPosition;
+}
+
+void incrementConnection(Point* currentPosition, enum Orientation direction)
+{
+    switch(direction){
+        case TOP:
+            currentPosition->y--;
+            break;
+        case BOTTOM:
+            currentPosition->y++;
+            break;
+        case LEFT:
+            currentPosition->x--;
+            break;
+        case RIGHT:
+            currentPosition->x++;
+
+    }
+    mvprintw(currentPosition->y, currentPosition->x, "#");
 }
 
 int printConnection(Connection* con){
@@ -109,26 +125,10 @@ int printConnection(Connection* con){
     Point delta;
     delta.x = end.x-start.x;
     delta.y = end.y-start.y;
-    //Initial Movement
-    switch(con->doorSideHead){
-        case TOP:
-            delta.y+=1;
-            start.y-=1;
-        break;
-        case BOTTOM:
-            delta.y-=1;
-            start.y+=1;
-        break;
-        case LEFT:
-            delta.x+=1;
-            start.x-=1;
-        break;
-        case RIGHT:
-            delta.x-=1;
-            start.x+=1;
-        break;
-    }
-    mvprintw(start.y, start.x, "#");
+
+    //Initialization of endpoints
+    incrementConnection(&start, con->doorSideHead);
+    incrementConnection(&end, con->doorSideTail);
     //Find End
     bool Xmovement = delta.y == 0 || (delta.x / delta.y != 0);
     bool hasMoved = false;
@@ -138,57 +138,43 @@ int printConnection(Connection* con){
         if(Xmovement) {
             if(delta.x < 0 && (mvinch(start.y, start.x-1) == ' '))
             {
-                delta.x+=1;
-                start.x-=1;
-                mvprintw(start.y, start.x, "#");
+                incrementConnection(&start, LEFT);
                 hasMoved = true;
             }else if(delta.x > 0 && (mvinch(start.y, start.x+1) == ' ')) {
-                delta.x-=1;
-                start.x+=1;
-                mvprintw(start.y, start.x, "#");
+                incrementConnection(&start, RIGHT);
                 hasMoved = true;
             }else if(delta.y < 0 && (mvinch(start.y-1, start.x) == ' ')) {
-                delta.y += 1;
-                start.y -= 1;
-                mvprintw(start.y, start.x, "#");
+                incrementConnection(&start, TOP);
                 hasMoved = true;
             }else if(delta.y > 0 && (mvinch(start.y+1, start.x) == ' ')) {
-                delta.y -= 1;
-                start.y += 1;
-                mvprintw(start.y, start.x, "#");
+                incrementConnection(&start, BOTTOM);
                 hasMoved = true;
             }
         } else {//invert priority of x and y
             if(delta.y < 0 && (mvinch(start.y-1, start.x) == ' ')) {
-                delta.y += 1;
-                start.y -= 1;
-                mvprintw(start.y, start.x, "#");
+                incrementConnection(&start, TOP);
                 hasMoved = true;
             }else if(delta.y > 0 && (mvinch(start.y+1, start.x) == ' ')) {
-                delta.y -= 1;
-                start.y += 1;
-                mvprintw(start.y, start.x, "#");
+                incrementConnection(&start, BOTTOM);
                 hasMoved = true;
             }else if(delta.x < 0 && (mvinch(start.y, start.x-1) == ' ')) {
-                delta.x+=1;
-                start.x-=1;
-                mvprintw(start.y, start.x, "#");
+                incrementConnection(&start, LEFT);
                 hasMoved = true;
             }else if(delta.x > 0 && (mvinch(start.y, start.x+1) == ' ')) {
-                delta.x-=1;
-                start.x+=1;
-                mvprintw(start.y, start.x, "#");
+                incrementConnection(&start, RIGHT);
                 hasMoved = true;
             }
         }
+        delta.x = end.x-start.x, delta.y = end.y-start.y;
         Xmovement = delta.y == 0 || (delta.x / delta.y) != 0;
         if(!hasMoved) {
             int lastMove = delta.y+delta.x;
             if(lastMove >= -1  && lastMove <= 1 && !(delta.y || delta.x)) {
                 return 0;
-            }
-            return -1;
+            }else{return -1;}
         }
+        mvprintw(3,0,"Delta is y:%d x:%d ", delta.y, delta.x);
+        getch();
     }
     return 0;
 }
@@ -260,14 +246,14 @@ Map createTestMap() {
     Room** rooms = malloc(sizeof(Room*)*3);
     rooms[0] = buildRoom(13, 13, 6, 12);
     rooms[1] = buildRoom(3, 13, 6, 12);
-    rooms[2] = buildRoom(20, 40, 12, 12);
+    rooms[2] = buildRoom(13, 35, 6, 12);
 
     for(int i=0; i<4; i++){
         buildDoor(rooms[0], i);
         rooms[0]->doors[i].isBlocked=true;
     }
     
-    connectRooms(rooms[0], rooms[2], TOP, RIGHT);
+    connectRooms(rooms[0], rooms[2], TOP, BOTTOM);
     //connectRooms(rooms[1], rooms[2], RIGHT, LEFT);
 
     for(int i=0; i<3; i++ )
